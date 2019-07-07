@@ -268,7 +268,7 @@ class BitsetTests: XCTestCase {
     XCTAssertEqual(b2, bexpected, "Bad intersection")
   }
 
-  func testDeserialisation() {
+  func testDeserialization() {
     let d1 = Data([UInt8]([
       0b00000001, 0, 0, 0, 0, 0, 0, 0b01000000, // first word: 8-bytes
       0b00000100, 0, 0, 0, 0, 0, 0b00010000 // second word: 7-bytes
@@ -286,7 +286,7 @@ class BitsetTests: XCTestCase {
     XCTAssertEqual(b1.symmetricDifferenceCount(b3), 11)
   }
 
-  func testSerialisation() {
+  func testSerialization() {
     let b1 = Bitset([0, 62, 66, 116])
     let d1 = b1.toData()
     let d2 = Data([UInt8]([
@@ -299,7 +299,7 @@ class BitsetTests: XCTestCase {
     }
   }
 
-  func testSerialisationAtBoundaries() {
+  func testSerializationAtBoundaries() {
     precondition(Bitset.wordSize == 8) // test cases will need updating if this breaks
     struct CompareData {
       let data: [UInt8]
@@ -318,18 +318,19 @@ class BitsetTests: XCTestCase {
       // first bit of 2nd word
       CompareData(data: [UInt8]([ 0, 0, 0, 0, 0, 0, 0, 0, 0b1]), bitIndex: [64], bits: 1, words: 2, length: 9),
       // last bit of 2nd word
-      CompareData(data: [UInt8]([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0b10000000]), bitIndex: [127], bits: 1, words: 2, length: 15)
+      CompareData(data: [UInt8]([ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0b10000000]), bitIndex: [127], bits: 1, words: 2, length: 16)
     ]
-    compareData.forEach { d in
-      let raw = Data(d.data)
+    for (idx, d) in compareData.enumerated() {
+      var raw = Data(d.data)
       let bitset = Bitset(bytes: raw)
       let compare = Bitset(d.bitIndex)
       let export = bitset.toData()
-      XCTAssertEqual(bitset.count(), d.bits) // count of bits set
-      XCTAssertEqual(bitset.wordcount, d.words) // internal word count
-      XCTAssertEqual(bitset.symmetricDifferenceCount(compare), 0)
-      XCTAssertEqual(export.count, 1) // exported data byte length
-      XCTAssertEqual(raw, export)
+      XCTAssertEqual(bitset.count(), d.bits, "Bit count: \(d)")
+      XCTAssertEqual(bitset.wordcount, d.words, "Internal word count: \(d)")
+      XCTAssertEqual(bitset.symmetricDifferenceCount(compare), 0, "Difference: \(d)")
+      XCTAssertEqual(export.count, d.length, "Byte length: \(d)") // exported data byte length
+      if idx == 0 { raw = Data() }
+      XCTAssertEqual(raw, export, "Export: \(d)")
     }
   }
 
