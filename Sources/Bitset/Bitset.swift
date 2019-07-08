@@ -80,16 +80,21 @@ public final class Bitset: Sequence, Equatable, CustomStringConvertible,
     for w in 0..<capacity {
       var word: UInt64 = 0
       if remaining < Bitset.wordSize {
-        for b in 0..<remaining { // about 50% faster than `copyBytes` with `withUnsafeMutableBytes`
+        // copy last word fragment
+        // about 50% faster than `copyBytes` with `withUnsafeMutableBytes`
+        for b in 0..<remaining {
           let byte = UInt64(clamping: bytes[offset + b])
           word = word | (byte << (b * 8))
         }
       } else {
+        // copy entire word - assumes data is aligned to word boundary
+        // ~5% faster than `$0.load(as: UInt64.self)`
+        // ~4x faster than `copyBytes` with `withUnsafeMutableBytes`
         let next = offset + Bitset.wordSize
         word = bytes
             .subdata(in: offset..<next)
-            .withUnsafeBytes({
-              $0.bindMemory(to: UInt64.self).baseAddress!.pointee // assumes aligned - also marginally faster than `$0.load(as: UInt64.self)`
+            .withUnsafeBytes({(pointer: UnsafeRawBufferPointer) -> UInt64 in
+              pointer.bindMemory(to: UInt64.self).baseAddress!.pointee
             })
         word = CFSwapInt64LittleToHost(word)
         remaining -= Bitset.wordSize
@@ -100,7 +105,7 @@ public final class Bitset: Sequence, Equatable, CustomStringConvertible,
     // TODO: shrink bitmap according to MSB
   }
 
-  // store as uncompressed bitmap in ascending order, with a bytes size that captures the most significant bits,
+  // store as uncompressed bitmap in ascending order, with a bytes size that captures the most significant bit,
   // or an empty instance if no bits are present
   public func toData() -> Data {
     assert(Bitset.wordSize == 8) // this logic is expecting a 64-bit internal representation
